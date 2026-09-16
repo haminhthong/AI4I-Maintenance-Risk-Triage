@@ -22,7 +22,6 @@ from .utils import LOGGER, save_json
 
 DEFAULT_RAW_DATA_PATH = Path("data/raw/ai4i2020.csv")
 DEFAULT_SPLIT_MANIFEST_PATH = Path("reports/split_manifest.json")
-DEFAULT_AUDIT_REPORT_PATH = Path("reports/data_audit.json")
 SPLIT_FRACTIONS = {"development": 0.70, "validation": 0.15, "test": 0.15}
 
 
@@ -48,9 +47,9 @@ def load_raw_dataset(path: str | Path = DEFAULT_RAW_DATA_PATH) -> pd.DataFrame:
 def audit_dataset(
     df: pd.DataFrame,
     sha256_hash: str | None = None,
-    save_path: str | Path | None = DEFAULT_AUDIT_REPORT_PATH,
+    save_path: str | Path | None = None,
 ) -> dict[str, Any]:
-    """Kiểm tra schema, missing, duplicate và tỷ lệ failure."""
+    """Kiểm tra schema, missing, duplicate và tỷ lệ failure trong bộ nhớ."""
     clean_df = canonicalize_raw_dataframe(df)
     if TARGET_COLUMN not in clean_df.columns:
         raise KeyError(f"Dataset thiếu cột target: {TARGET_COLUMN}")
