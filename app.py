@@ -87,9 +87,7 @@ def render_overview(service: RiskInferenceService, report: dict[str, Any]) -> No
             queue_rows.append(
                 {
                     "Năng lực kiểm tra": f"Top {percentage}%",
-                    "Failure Capture@K": (
-                        "n/a" if capture is None else f"{float(capture):.2%}"
-                    ),
+                    "Failure Capture@K": ("n/a" if capture is None else f"{float(capture):.2%}"),
                     "Queue Precision@K": (
                         "n/a" if precision is None else f"{float(precision):.2%}"
                     ),
@@ -113,9 +111,7 @@ def render_single_snapshot(service: RiskInferenceService) -> None:
         with left:
             record_id = st.text_input("Record ID", value="SNAPSHOT_01")
             quality_type = st.selectbox("Product quality type", ["L", "M", "H"], index=1)
-            air_temperature = st.number_input(
-                "Air temperature [K]", 280.0, 330.0, 300.0, 0.1
-            )
+            air_temperature = st.number_input("Air temperature [K]", 280.0, 330.0, 300.0, 0.1)
             process_temperature = st.number_input(
                 "Process temperature [K]", 280.0, 340.0, 310.0, 0.1
             )
@@ -158,9 +154,7 @@ def render_single_snapshot(service: RiskInferenceService) -> None:
         st.json(
             {
                 "temperature_delta_k": process_temperature - air_temperature,
-                "mechanical_power_w": (
-                    torque * rotational_speed * 2.0 * 3.141592653589793 / 60.0
-                ),
+                "mechanical_power_w": (torque * rotational_speed * 2.0 * 3.141592653589793 / 60.0),
                 "wear_load_interaction": tool_wear * torque,
             }
         )
@@ -195,9 +189,7 @@ def render_batch_ranking(service: RiskInferenceService) -> None:
     st.subheader("Batch Risk Ranking")
     st.caption("CSV có thể dùng tên cột AI4I gốc hoặc tên canonical của API.")
     uploaded_file = st.file_uploader("Tải CSV snapshot", type=["csv"])
-    top_k = st.number_input(
-        "Số dòng hiển thị trong queue", min_value=1, max_value=1000, value=20
-    )
+    top_k = st.number_input("Số dòng hiển thị trong queue", min_value=1, max_value=1000, value=20)
     if uploaded_file is None:
         st.info("Tải một CSV chỉ gồm biến vận hành để bắt đầu.")
         return
@@ -286,9 +278,7 @@ def main() -> None:
     """Khởi chạy dashboard sau khi kiểm tra artifact."""
     service = RiskInferenceService.get_instance()
     if not service.is_ready:
-        st.error(
-            "Artifact chưa sẵn sàng. Chạy `python -m src.train` trước khi mở dashboard."
-        )
+        st.error("Artifact chưa sẵn sàng. Chạy `python -m src.train` trước khi mở dashboard.")
         return
 
     report = load_json_report("final_test_metrics.json")
