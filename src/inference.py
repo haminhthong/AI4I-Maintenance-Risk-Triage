@@ -18,7 +18,6 @@ from .contracts import (
 )
 from .features import build_canonical_features, canonicalize_raw_dataframe
 from .input_validation import check_input_ranges
-from .models import patch_estimator_compat
 from .policy import decision_from_risk, rank_rows
 
 LOGGER = logging.getLogger("ai4i.inference")
@@ -73,7 +72,7 @@ class RiskInferenceService:
                 for key in ("model_file", "metadata_file", "threshold_file")
             ):
                 return
-            self.model = patch_estimator_compat(joblib.load(required["model"]))
+            self.model = joblib.load(required["model"])
             self.metadata = json.loads(required["metadata"].read_text(encoding="utf-8"))
             self.threshold = json.loads(required["threshold"].read_text(encoding="utf-8"))
             ranges_path = self.artifacts_dir / "reference_ranges.json"

@@ -50,6 +50,17 @@ TWF là điểm yếu rõ ràng. RNF chỉ có một test case nên không đư�
 
 Đây là ranking analysis: nếu chỉ kiểm tra nhóm snapshot có risk cao nhất, nhóm đó bắt được bao nhiêu failure. Repo không giả lập capacity, asset queue hay technician workflow.
 
+### Business / operations metrics
+
+| Metric | Ý nghĩa | Trạng thái |
+| --- | --- | --- |
+| Failure Capture@K | Tỷ lệ failure nằm trong Top-K snapshot có risk cao nhất | Có trong `final_test_metrics.json` |
+| Queue Precision@K | Tỷ lệ snapshot trong Top-K thực sự là failure | Có trong `final_test_metrics.json` |
+| Review Coverage | Tỷ lệ snapshot bị đưa vào review theo threshold Validation | Có trong `final_test_metrics.json` |
+| Priority Override Rate | Tỷ lệ technician thay đổi ưu tiên so với model | Chưa đo; repo không có event override |
+
+`Priority Override Rate` được ghi rõ là chưa đo thay vì suy diễn từ locked test. Dự án không thêm monitoring, event store hoặc registry để tạo metric này.
+
 ## Bài toán & phạm vi ứng dụng
 
 AI4I có 10.000 operating snapshots và tỷ lệ failure 3,39% (`339/10.000`). Accuracy không phải metric chính; PR-AUC được ưu tiên vì phản ánh tốt hơn positive class hiếm.
@@ -70,21 +81,22 @@ Mục tiêu kỹ thuật:
 
 ```mermaid
 flowchart TD
-    A[AI4I 2020 CSV<br/>10,000 operating snapshots] --> B[Chuẩn hóa tên cột<br/>kiểm tra target, missing, duplicate]
-    B --> C[Loại UDI, Product ID,<br/>Machine Failure và 5 failure-mode flags khỏi features]
-    C --> D[6 raw sensor variables<br/>+ 3 engineered features]
-    D --> E[Stratified split<br/>Development 70% / Validation 15% / Test 15%]
-    E --> F[Development<br/>5-fold Stratified CV]
-    F --> G[Logistic Regression<br/>Random Forest<br/>HistGradientBoosting]
-    G --> H[Chọn model theo<br/>mean PR-AUC rồi Brier]
-    H --> I[Sigmoid probability calibration]
-    I --> J[Validation<br/>chọn review threshold bằng F1]
-    J --> K[Test hold-out<br/>metric, calibration, slices, Top-K]
-    I --> L[artifacts/model.joblib<br/>metadata + threshold + ranges]
-    L --> M[POST /score<br/>failure risk + decision + warnings]
-    L --> N[POST /rank<br/>vectorized batch score rồi sort risk giảm dần]
-    M --> O[Streamlit Single Snapshot]
-    N --> P[Streamlit Batch Ranking]
+    A[SENSOR DATA<br/>AI4I operating snapshot] --> B[LEAKAGE BOUNDARY<br/>canonicalize + loại identifier, target, failure flags]
+    B --> C[ML RISK LAYER<br/>6 raw + 3 engineered features]
+    C --> D[Stratified split<br/>Development 70% / Validation 15% / locked Test 15%]
+    D --> E[5-fold Stratified CV<br/>chọn model theo PR-AUC rồi Brier]
+    E --> F[Sigmoid calibration<br/>calibrated snapshot_failure_risk]
+    F --> G[Validation threshold<br/>chọn review threshold bằng F1]
+    G --> H[LOCKED TEST<br/>metrics + calibration + critical slices + Top-K]
+    F --> I[RELIABILITY LAYER<br/>NOMINAL / DEGRADED / UNAVAILABLE<br/>artifact và input range checks]
+    I --> J[DECISION POLICY<br/>NO_ALERT / REVIEW_REQUIRED]
+    J --> K[CAPACITY-AWARE QUEUE<br/>/rank sort risk giảm dần + Top-K]
+    K --> L[TECHNICIAN<br/>review snapshot]
+    L --> M[Outcome feedback<br/>chưa lưu trong repo]
+    I --> N[FastAPI /score<br/>risk + decision + warnings]
+    K --> O[FastAPI /rank<br/>batch risk + rank]
+    N --> P[Streamlit Single Snapshot]
+    O --> Q[Streamlit Batch Ranking]
 ```
 
 ### Feature contract
@@ -141,13 +153,10 @@ AI4I-Maintenance-Risk-Triage/
 │   └── reference_ranges.json      # Range tham chiếu để cảnh báo input
 ├── data/raw/ai4i2020.csv          # Dataset AI4I được dùng trong CI
 ├── reports/
-│   ├── data_audit.json             # Data validation và leakage boundary
 │   ├── split_manifest.json          # Chỉ số split + SHA256 dataset
-│   ├── validation_metrics.json     # CV leaderboard, ablation, threshold
+│   ├── validation_metrics.json     # CV leaderboard và threshold Validation
 │   ├── feature_ablation.json       # Raw 6 so với raw + engineered 3
-│   ├── final_test_metrics.json     # Test metrics, calibration, Top-K
-│   ├── failure_mode_analysis.json  # Recall TWF/HDF/PWF/OSF/RNF
-│   └── twf_error_analysis.json      # Tóm tắt TWF detected/missed
+│   └── final_test_metrics.json     # Locked test, Top-K, slices, TWF
 ├── src/
 │   ├── contracts.py                # Tên cột và feature constants
 │   ├── data.py                     # Load, audit, split
@@ -265,7 +274,7 @@ Ranking batch dùng `POST /rank` với body `{ "snapshots": [...], "top_k": 20 }
 streamlit run app.py
 ```
 
-Dashboard có hai tab: nhập một snapshot và upload CSV để xem Top-K risk cao nhất.
+Dashboard có bốn tab: tổng quan locked test, nhập một snapshot, upload CSV để xếp hạng batch, và hiệu năng/giới hạn mô hình.
 
 ### Chạy test/lint
 

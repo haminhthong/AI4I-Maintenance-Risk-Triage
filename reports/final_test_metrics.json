@@ -15,6 +15,7 @@
     "brier": 0.005096194976536309,
     "ece": 0.006220078273202059,
     "review_coverage": 0.03,
+    "priority_override_rate": null,
     "failure_capture_at_1pct": 0.29411764705882354,
     "failure_capture_at_2pct": 0.5882352941176471,
     "failure_capture_at_3pct": 0.8627450980392157,

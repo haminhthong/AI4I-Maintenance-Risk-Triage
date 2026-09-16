@@ -15,7 +15,6 @@ from .data import load_data
 from .models import (
     compute_calibration_curve_and_ece,
     compute_classification_metrics,
-    patch_estimator_compat,
 )
 from .policy import failure_capture_at_k, queue_precision_at_k
 from .utils import LOGGER, save_json, setup_logging
@@ -81,7 +80,7 @@ def evaluate_model_on_test() -> dict[str, Any]:
         load_data(return_metadata=True)
     )
     del X_development, X_validation, y_development, y_validation
-    model = patch_estimator_compat(joblib.load(ARTIFACTS_DIR / "model.joblib"))
+    model = joblib.load(ARTIFACTS_DIR / "model.joblib")
     metadata = json.loads((ARTIFACTS_DIR / "metadata.json").read_text(encoding="utf-8"))
     threshold = json.loads((ARTIFACTS_DIR / "threshold.json").read_text(encoding="utf-8"))
     review_threshold = float(threshold["review_threshold"])
@@ -102,6 +101,8 @@ def evaluate_model_on_test() -> dict[str, Any]:
         "brier": primary_metrics["brier"],
         "ece": ece,
         "review_coverage": primary_metrics["alert_rate"],
+        # Chưa có nhật ký quyết định của kỹ thuật viên để đo metric này.
+        "priority_override_rate": None,
         "failure_capture_at_1pct": failure_capture_at_k(y_true, probabilities, 0.01),
         "failure_capture_at_2pct": failure_capture_at_k(y_true, probabilities, 0.02),
         "failure_capture_at_3pct": failure_capture_at_k(y_true, probabilities, 0.03),
@@ -128,8 +129,6 @@ def evaluate_model_on_test() -> dict[str, Any]:
         "calibration_curve": calibration_curve,
     }
     save_json(REPORTS_DIR / "final_test_metrics.json", report)
-    save_json(REPORTS_DIR / "failure_mode_analysis.json", failure_modes)
-    save_json(REPORTS_DIR / "twf_error_analysis.json", report["twf_error_analysis"])
     LOGGER.info(
         "Test PR-AUC=%.4f ROC-AUC=%.4f Brier=%.4f ECE=%.4f",
         test_performance["pr_auc"],

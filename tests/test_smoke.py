@@ -126,16 +126,6 @@ def test_failure_modes_are_not_model_features() -> None:
     assert list(X_test.columns) == list(MODEL_FEATURE_CONTRACT)
 
 
-def test_dataset_hash_matches_report() -> None:
-    report = Path("reports/data_audit.json")
-    if report.exists():
-        import json
-
-        assert json.loads(report.read_text(encoding="utf-8"))[
-            "raw_sha256"
-        ] == compute_dataset_sha256("data/raw/ai4i2020.csv")
-
-
 def test_dataset_hash_is_stable_across_newline_styles(tmp_path: Path) -> None:
     content = "column_a,column_b\n1,2\n"
     lf_path = tmp_path / "lf.csv"
