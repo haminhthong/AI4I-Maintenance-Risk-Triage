@@ -88,7 +88,7 @@ flowchart TD
     E --> F[Sigmoid calibration<br/>calibrated snapshot_failure_risk]
     F --> G[Validation threshold<br/>chọn review threshold bằng F1]
     G --> H[LOCKED TEST<br/>metrics + calibration + critical slices + Top-K]
-    F --> I[RELIABILITY LAYER<br/>NOMINAL / DEGRADED / UNAVAILABLE<br/>artifact và input range checks]
+    F --> I[RELIABILITY LAYER<br/>model_ready + status ok/degraded<br/>artifact checks và input range warnings]
     I --> J[DECISION POLICY<br/>NO_ALERT / REVIEW_REQUIRED]
     J --> K[CAPACITY-AWARE QUEUE<br/>/rank sort risk giảm dần + Top-K]
     K --> L[TECHNICIAN<br/>review snapshot]
@@ -146,6 +146,9 @@ Kết quả này là lý do giữ 3 engineered features, thay vì thêm nhiều 
 ```text
 AI4I-Maintenance-Risk-Triage/
 ├── app.py                         # Streamlit: single snapshot + batch ranking
+├── .dockerignore                  # Loại test, report và dataset khỏi Docker context
+├── .gitattributes                 # Chuẩn hóa newline cho file được track
+├── .gitignore                     # Loại cache và runtime file khỏi Git
 ├── artifacts/
 │   ├── model.joblib               # Model pipeline đã calibration
 │   ├── metadata.json              # Model, feature, dataset và môi trường
@@ -172,6 +175,8 @@ AI4I-Maintenance-Risk-Triage/
 ├── scripts/download_data.py        # Tải dataset từ UCI khi cần
 ├── Dockerfile                      # Image API phục vụ artifact đã train
 ├── Makefile
+├── pytest.ini                      # Cấu hình pytest và test discovery
+├── ruff.toml                       # Luật lint/format dùng trong CI
 ├── requirements.txt
 ├── requirements-api.txt             # Dependency tối thiểu cho API image
 ├── requirements-ci.txt              # Dependency tối thiểu, cố định cho pytest trên CI
@@ -179,6 +184,8 @@ AI4I-Maintenance-Risk-Triage/
 ```
 
 `artifacts/` là source of truth duy nhất cho serving. Split manifest ghi kèm SHA256 của dataset để không tái sử dụng index trên một file dữ liệu khác. Hash được tính với newline chuẩn LF để cùng một CSV cho kết quả giống nhau trên Windows và Linux.
+
+`src.train` kiểm tra dataset trong bộ nhớ, tạo hoặc đọc `split_manifest.json`, rồi ghi model đã calibration cùng threshold và range tham chiếu vào `artifacts/`. `src.evaluate` chỉ đọc artifact hiện tại và locked Test, sau đó ghi toàn bộ metric Test, calibration curve, critical slices và TWF diagnostic vào `final_test_metrics.json`. Không có report audit runtime riêng.
 
 ## Cài đặt & chạy
 
@@ -266,6 +273,16 @@ Response tối giản:
 }
 ```
 
+Các endpoint thực tế:
+
+| Endpoint | Mục đích |
+| --- | --- |
+| `GET /live` | Kiểm tra tiến trình API còn chạy |
+| `GET /ready` | Kiểm tra artifact bắt buộc và feature contract đã sẵn sàng |
+| `GET /health` | Trả `status`, `model_ready` và tên model |
+| `POST /score` | Chấm điểm một snapshot, trả risk, decision, threshold và warnings |
+| `POST /rank` | Chấm điểm batch, sort risk giảm dần và gắn `rank` |
+
 Ranking batch dùng `POST /rank` với body `{ "snapshots": [...], "top_k": 20 }`. API chuẩn hóa cả batch, gọi model một lần bằng `predict_proba`, sau đó sort theo calibrated risk và trả `rank`; không lưu event và không dựng queue theo asset.
 
 ### Chạy dashboard
@@ -285,6 +302,8 @@ python -B -m pytest -q
 ```
 
 CI tách thành ba job: Ruff/format, pytest với dependency API và test tối thiểu đã cố định, và Docker smoke test. Job Docker build image từ source API và artifact đã tồn tại, kiểm tra `/ready`, `/live` và `/score`; Docker không tự tải dữ liệu hoặc tự train trong lúc build.
+
+Có thể dùng các shortcut tương đương trong `Makefile`: `make train`, `make evaluate`, `make serve`, `make dashboard`, `make test`, `make lint` và `make docker-build`. `make full-pipeline` sẽ tải lại dataset trước khi train/evaluate, nên chỉ dùng khi muốn cập nhật file dữ liệu.
 
 Build image cục bộ:
 
